@@ -11,7 +11,7 @@ fn main() {
     println!("Hello, world!");
 
     let contents =
-        fs::read_to_string("src/input.txt").expect("Should have been able to read: input.txt");
+        fs::read_to_string("src/data/input.txt").expect("Should have been able to read: input.txt");
 
     let mut current_degree: u32 = 50;
     let mut current_direction: Option<DIRECTION> = None;
