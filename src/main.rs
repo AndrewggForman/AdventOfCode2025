@@ -1,349 +1,108 @@
 use std::fs;
 fn main() {
-    let contents = fs::read_to_string("src/data/d4input.txt")
-        .expect("Should have been able to read: src/data/d4input.txt");
+    let contents = fs::read_to_string("src/data/d5input.txt")
+        .expect("Should have been able to read: src/data/d5input.txt");
 
-    let mut rows: Vec<Vec<char>> = Vec::new();
-    let mut columns: Vec<char> = Vec::new();
-    let mut total_ats = 0;
+    let mut id_ranges: String = String::from("");
+    let mut id_availabilities: Vec<String> = Vec::new();
+    let mut curr_string = String::from("");
 
     for char in contents.chars() {
         match char {
-            '@' | '.' => {
-                columns.push(char);
-                total_ats += 1;
+            '\r' => {}
+            '\n' => {
+                if curr_string.len() == 0 {
+                    continue;
+                }
+                if curr_string.contains('-') {
+                    id_ranges = id_ranges + &curr_string + "\n";
+                    curr_string = String::from("");
+                } else {
+                    id_availabilities.push(curr_string);
+                    curr_string = String::from("");
+                }
+            }
+            _ => {
+                curr_string.push(char);
+            }
+        }
+    }
+
+    println!("Ranges: {:#?}", id_ranges);
+    println!("Availabilities: {:#?}", id_availabilities);
+
+    let mut low_range: Vec<String> = Vec::new();
+    let mut high_range: Vec<String> = Vec::new();
+    for char in id_ranges.chars() {
+        match char {
+            '-' => {
+                low_range.push(curr_string);
+                curr_string = String::from("");
             }
             '\n' => {
-                rows.push(columns);
-                columns = Vec::new();
+                high_range.push(curr_string);
+                curr_string = String::from("");
             }
-            _ => {}
+            _ => curr_string.push(char),
         }
     }
 
-    // Second vector for copying to
-    let mut copy_rows = rows.clone();
+    println!("Low range: {:#?}", low_range);
+    println!("High range: {:#?}", high_range);
 
-    let row_size: usize = rows.len();
-    let mut adjacent_paper_count: u32 = 0;
-    let mut accessable_paper_count: u32 = 0;
+    if low_range.len() != high_range.len() {
+        panic!("ERROR::Lopsided Bounds!");
+    }
 
-    // Paper counts to compare for knowing when to end loop
-    let mut original_paper_count: u32 = 0;
-    let mut copy_paper_count: u32 = 0;
-    let mut paper_removed: u32 = 0;
-    let mut last_loop_paper_count: u32 = 0;
+    let mut id_counter: usize = 0;
+    let mut total_available = 0;
 
-    // Loop -> Every time we find an accessable paper, update copy vector with a '.' instead of a '@'
-    // & update how many paper we've removed. At the end of an iteration we break if our clone didn't change at all
-    // Meaning that we've finally removed all removable papers, and nothing changed between loop iterations
-    loop {
-        rows = copy_rows.clone();
-        last_loop_paper_count = copy_paper_count;
-        original_paper_count = 0;
-        copy_paper_count = 0;
-
-        for (row_pos, row) in rows.iter().enumerate() {
-            let column_size: usize = row.len();
-            for (column_pos, column) in row.iter().enumerate() {
-                // Handles Not-paper
-                if is_empty_spot(column) {
-                    copy_rows[row_pos][column_pos] = '.';
-                    continue;
-                } else {
-                    original_paper_count += 1;
-                }
-
-                // Handles Corners
-                if is_top_left(row_pos, column_pos) {
-                    let mut current_row = row_pos;
-                    while current_row <= row_pos + 1 {
-                        let mut current_column = column_pos;
-                        while current_column <= column_pos + 1 {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_top_right(row_pos, column_pos, column_size) {
-                    let mut current_row = row_pos;
-                    while current_row <= row_pos + 1 {
-                        let mut current_column = column_pos - 1;
-                        while current_column <= column_pos {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_bottom_left(row_pos, column_pos, row_size) {
-                    let mut current_row = row_pos - 1;
-                    while current_row <= row_pos {
-                        let mut current_column = column_pos;
-                        while current_column <= column_pos + 1 {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_bottom_right(row_pos, column_pos, row_size, column_size) {
-                    let mut current_row = row_pos - 1;
-                    while current_row <= row_pos {
-                        let mut current_column = column_pos - 1;
-                        while current_column <= column_pos {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                // Handles Edges
-                if is_top_edge(row_pos) {
-                    let mut current_row = row_pos;
-                    while current_row <= row_pos + 1 {
-                        let mut current_column = column_pos - 1;
-                        while current_column <= column_pos + 1 {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_bottom_edge(row_pos, row_size) {
-                    let mut current_row = row_pos - 1;
-                    while current_row <= row_pos {
-                        let mut current_column = column_pos - 1;
-                        while current_column <= column_pos + 1 {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1;
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_right_edge(column_pos, column_size) {
-                    let mut current_row = row_pos - 1;
-                    while current_row <= row_pos + 1 {
-                        let mut current_column = column_pos - 1;
-                        while current_column <= column_pos {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                if is_left_edge(column_pos) {
-                    let mut current_row = row_pos - 1;
-                    while current_row <= row_pos + 1 {
-                        let mut current_column = column_pos;
-                        while current_column <= column_pos + 1 {
-                            match rows[current_row][current_column] {
-                                '@' => adjacent_paper_count += 1,
-                                _ => {}
-                            }
-                            current_column += 1;
-                        }
-                        current_row += 1;
-                    }
-
-                    // Offsets counting self
-                    adjacent_paper_count -= 1;
-                    if adjacent_paper_count < 4 {
-                        copy_rows[row_pos][column_pos] = '.';
-                        accessable_paper_count += 1
-                    }
-
-                    adjacent_paper_count = 0;
-                    continue;
-                }
-
-                // Normal Position
-                let mut current_row = row_pos - 1;
-                while current_row <= row_pos + 1 {
-                    let mut current_column = column_pos - 1;
-                    while current_column <= column_pos + 1 {
-                        match rows[current_row][current_column] {
-                            '@' => adjacent_paper_count += 1,
-                            _ => {}
-                        }
-                        current_column += 1;
-                    }
-                    current_row += 1;
-                }
-
-                // Offsets counting self
-                adjacent_paper_count -= 1;
-                if adjacent_paper_count < 4 {
-                    copy_rows[row_pos][column_pos] = '.';
-                    accessable_paper_count += 1
-                }
-
-                adjacent_paper_count = 0;
+    for index in id_availabilities {
+        let curr_id = string_to_u64(&index);
+        println!("curr_id: {}", curr_id);
+        let range_len = low_range.len();
+        let mut iterator: usize = 0;
+        while iterator < range_len {
+            let low_bound = &low_range[iterator];
+            let high_bound = &high_range[iterator];
+            let mut low_bound = string_to_u64(low_bound);
+            let high_bound = string_to_u64(high_bound);
+            if curr_id >= low_bound && curr_id <= high_bound {
+                println!(
+                    "curr_id: {}, low_bound: {}, high_bound: {}",
+                    curr_id, low_bound, high_bound
+                );
+                total_available += 1;
+                break;
             }
-        }
-
-        // Iterate through unchanged original, count papers
-        for (row_pos, row) in rows.iter().enumerate() {
-            for (column_pos, column) in row.iter().enumerate() {
-                if *column == '@' {
-                    original_paper_count += 1;
-                }
-            }
-        }
-
-        // Iterate through copy with removed papers, count papers
-        for (row_pos, row) in copy_rows.iter().enumerate() {
-            for (column_pos, column) in row.iter().enumerate() {
-                if *column == '@' {
-                    copy_paper_count += 1;
-                }
-            }
-        }
-
-        println!("copy_paper_count of ROWS: {}", copy_paper_count);
-
-        // Check for equality
-        if (original_paper_count == copy_paper_count) || last_loop_paper_count == copy_paper_count {
-            break;
+            iterator += 1;
         }
     }
 
-    println!("accessable_paper_count: {}", accessable_paper_count);
+    println!("total_available: {}", total_available);
+
+    // for index in [low_range.len() as usize] {
+    //     let low_bound = &low_range[index as usize];
+    //     let high_bound = &high_range[index as usize];
+    //     let mut low_bound = string_to_u64(low_bound);
+    //     let high_bound = string_to_u64(high_bound);
+
+    //     while low_bound <= high_bound {
+    //         if string_to_u64(&id_availabilities[id_counter]) >= low_bound
+    //             && string_to_u64(&id_availabilities[id_counter]) <= high_bound
+    //         {
+    //             total_available += 1;
+    //         }
+    //         id_counter += 1;
+    //         low_bound += 1;
+    //     }
+    // }
 }
 
-// Handle Corners
-fn is_empty_spot(char: &char) -> bool {
-    return char == &'.';
+fn string_to_u64(nums: &String) -> u64 {
+    nums.parse::<u64>().unwrap()
 }
 
-fn is_top_left(row_pos: usize, column_pos: usize) -> bool {
-    return (row_pos == 0) && (column_pos == 0);
-}
-
-fn is_top_right(row_pos: usize, column_pos: usize, column_size: usize) -> bool {
-    return (row_pos == 0) && (column_pos == column_size - 1);
-}
-
-fn is_bottom_left(row_pos: usize, column_pos: usize, row_size: usize) -> bool {
-    return (row_pos == row_size - 1) && (column_pos == 0);
-}
-
-fn is_bottom_right(row_pos: usize, column_pos: usize, row_size: usize, column_size: usize) -> bool {
-    return (row_pos == row_size - 1) && (column_pos == column_size - 1);
-}
-
-// Handle Edges
-fn is_top_edge(row_pos: usize) -> bool {
-    return row_pos == 0;
-}
-
-fn is_bottom_edge(row_pos: usize, row_size: usize) -> bool {
-    return row_pos == row_size - 1;
-}
-
-fn is_right_edge(column_pos: usize, column_size: usize) -> bool {
-    return column_pos == column_size - 1;
-}
-
-fn is_left_edge(column_pos: usize) -> bool {
-    return column_pos == 0;
+fn char_to_u64(num: char) -> u64 {
+    num.to_digit(10).unwrap() as u64
 }
